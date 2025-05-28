@@ -3,7 +3,11 @@ uuid = "62be7a3e-eb6e-4285-9b10-c716bac42db9"
 authors = ["Aminofa70 <amin.alibakhshi@upm.es> and contributors"]
 version = "1.0.0-DEV"
 
+[deps]
+PUPM = "98242e13-4771-4396-83d3-ad6bca37f0e8"
+
 [compat]
+PUPM = "1.0.0"
 julia = "1.6.7"
 
 [extras]
