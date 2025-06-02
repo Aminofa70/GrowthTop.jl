@@ -1,3 +1,10 @@
+### define the type of topology optimization problem
+struct UPM end
+struct SIMP end
+struct Tone end
+struct Ttwo end
+################################################################################
+
 function transfer_to_density(Enew::Array{Float64,1}, E0::Float64, ρ0::Float64, γ::Int64)
     # Define the minimum and maximum allowed density values
     ρmin, ρmax = 0.0, 1.0
@@ -11,7 +18,7 @@ function transfer_to_density(Enew::Array{Float64,1}, E0::Float64, ρ0::Float64, 
     # Return the resulting density array
     return ρ
 end
-
+################################################################################
 function transfer_to_young(ρnew::Array{Float64,1}, E0::Float64,
     ρ0::Float64, γ::Int64, Emin::Float64, Emax::Float64)
 
@@ -27,6 +34,8 @@ function transfer_to_young(ρnew::Array{Float64,1}, E0::Float64,
     # Return the resulting array of clamped Young's modulus values.
     return Enew
 end
+
+################################################################################
 function filter_density_to_vf!(density, vf, tnele, eta)
     # Define the minimum and maximum density values allowed.
     rhomin, rhomax = 0.01, 1.0
@@ -85,178 +94,507 @@ function filter_density_to_vf!(density, vf, tnele, eta)
     # Return the adjusted density array.
     return density
 end
-
-
-"""
-update_young_modulus("UPM", E, H, Emax, Emin, E0, γ, k=2.0)
-update_young_modulus("SIMP", E, H, Emax, Emin, E0, γ)
-update_young_modulus("T1", E, H, Emax, Emin, E0, γ, k=1.5)
-update_young_modulus("T2", E, H, Emax, Emin, E0, γ, B_Δt=0.1)
-
-"""
-function update_young_modulus(
-    method::String, 
-    E::AbstractVector{<:Real}, 
-    H::AbstractVector{<:Real}, 
-    Emax::Real, 
-    Emin::Real, 
-    E0::Real, 
-    γ::Real; 
-    k::Real=1.0, 
-    B_Δt::Real=1.0
-)
+################################################################################
+################################################################################
+################################################################################
+function update_young_UPM(k, E, H, Emax, Emin, E0, γ)
+    # Initialize updated Young's modulus array
     Enew = similar(E)
-    α = similar(E)
+
+    # Calculate mean and standard deviation of H
     H_mean = mean(H)
     H_std = std(H)
 
+    # Initialize α array
+    α = similar(E)
+
     for i in eachindex(E)
+        # Compute part1 as a scaled function of H[i] and E[i]
         part1 = H[i] * (E[i] / E0)^((γ - 1) / γ)
 
-        if method == "UPM"
-            if part1 - H_mean < 0
-                α[i] = -((abs(part1 - H_mean)) / (k * H_std))^γ
-            else
-                α[i] = ((part1 - H_mean) / (k * H_std))^γ
-            end
-            Enew[i] = E[i] * (1 + α[i])
-        
-        elseif method == "SIMP"
-            α[i] = (H[i] * (E[i] / E0)^((γ - 1) / γ))^γ
-            Enew[i] = E[i] * (1 + α[i])
-
-        elseif method == "T1"
-            if part1 - H_mean < 0
-                α[i] = -((abs(part1 - H_mean)) / k)^γ
-            else
-                α[i] = ((part1 - H_mean) / k)^γ
-            end
-            Enew[i] = E[i] * (1 + α[i])
-
-        elseif method == "T2"
-            H_mean = 0.0
-            ρ0 = 1.0
-            residual = (E0 * B_Δt * γ) / (ρ0^2)
-            if part1 - H_mean < 0
-                α[i] = -((abs(part1 - H_mean)))^γ
-            else
-                α[i] = ((part1 - H_mean))^γ
-            end
-            α_scalar = α[i] * (residual^γ)
-            Enew[i] = E[i] + E0 * α_scalar
-
+        # Compute normalized adjustment value α[i]
+        if part1 - H_mean < 0
+            α[i] = -((abs(part1 - H_mean)) / (k * H_std))^γ
         else
-            error("Unsupported method: $method")
+            α[i] = ((part1 - H_mean) / (k * H_std))^γ
         end
 
+        # Update E[i] with α adjustment
+        α_scalar = α[i]
+        Enew[i] = E[i] * (1 + α_scalar)
+
+        # Apply limits to ensure Enew[i] stays within [Emin, Emax]
         Enew[i] = clamp(Enew[i], Emin, Emax)
     end
 
     return Enew
 end
+################################################################################
+function update_young_SIMP(E, H, Emax, Emin, E0, γ)
+    
 
-function top_2d(method::Symbol, par::DynamicParams, E, args...; volfrac, η, name_of_file, directory)
-    grid, dh = par.grid, par.dh
-    tnele, E0, Emin, Emax, ρ0 = par.tnele, par.E0, par.Emin, par.Emax, par.ρ0
-    max_itr, tol = par.max_itr, par.tol
+    # Initialize arrays for updated values and intermediate results
+    Enew = similar(E)
+    α = similar(E)
 
-    loop = 1
-    strain_energy_vector = [1.0, 10.0]
+    # Iterate over each element to compute updated values
+    for i in eachindex(E)
+        # Compute the intermediate value α for the current element
+        α[i] = (H[i] * (E[i] / E0)^((γ - 1) / γ))^γ
 
-    while loop <= max_itr
-        fem = fem_solver(par, E)
-        W_tot = sum(fem.U)
-        H = fem.H
+        # Update Young's modulus based on the calculated α value
+        Enew[i] = E[i] * (1 + α[i])
 
-        # Update modulus
-        if method == :UPM
-            Enew = update_young_modulus("UPM", E, H, Emax, Emin, E0, args[2]; k=args[1])
-        elseif method == :SIMP
-            Enew = update_young_modulus("SIMP", E, H, Emax, Emin, E0, args[1])
-        elseif method == :Tone
-            Enew = update_young_modulus("T1", E, H, Emax, Emin, E0, args[2]; k=args[1])
-        elseif method == :Ttwo
-            Enew = update_young_modulus("T2", E, H, Emax, Emin, E0, args[1]; B_Δt=args[2])
-        else
-            error("Unknown method $method")
-        end
-
-        Enew_frac = if volfrac == 0.0
-            Enew
-        else
-            ρ = transfer_to_density(Enew, E0, ρ0, args[end])
-            ρnew = filter_density_to_vf!(ρ, volfrac, tnele, η)
-            transfer_to_young(ρnew, E0, ρ0, args[end], Emin, Emax)
-        end
-
-        strain_energy_vector = [strain_energy_vector[2], sum(fem_solver(par, Enew_frac).U)]
-        A = (strain_energy_vector[2] - strain_energy_vector[1]) / strain_energy_vector[1]
-        E = Enew_frac
-
-        if abs(A) <= tol
-            break
-        end
-        loop += 1
+        # Enforce the upper and lower bounds on the updated modulus
+        Enew[i] = clamp(Enew[i], Emin, Emax)
     end
 
-    # Final FEM solve for output
-    fem = fem_solver(par, E)
+    return Enew
+end
+################################################################################
+function update_young_Tone(k, E, H, Emax, Emin, E0, γ)
+    
+
+    # Initialize updated Young's modulus array
+    Enew = similar(E)
+
+    # Calculate mean and standard deviation of H
+    H_mean = mean(H)
+   # H_std = std(H)
+
+    # Initialize α array
+    α = similar(E)
+
+    for i in eachindex(E)
+        # Compute part1 as a scaled function of H[i] and E[i]
+        part1 = H[i] * (E[i] / E0)^((γ - 1) / γ)
+
+        # Compute normalized adjustment value α[i]
+        if part1 - H_mean < 0
+            α[i] = -((abs(part1 - H_mean)) / (k ))^γ
+        else
+            α[i] = ((part1 - H_mean) / (k ))^γ
+        end
+
+        # Update E[i] with α adjustment
+        α_scalar = α[i]
+        Enew[i] = E[i] * (1 + α_scalar)
+
+        # Apply limits to ensure Enew[i] stays within [Emin, Emax]
+        Enew[i] = clamp(Enew[i], Emin, Emax)
+    end
+
+    return Enew
+end
+################################################################################
+function update_young_Ttwo(E, H, Emax, Emin, E0, γ, B_Δt)
+    Enew = similar(E)
+    #H_mean = mean(H)
+
+    H_mean = 0.0
+    ρ0 = 1.0
+    residual = (E0*B_Δt*γ)/(ρ0^2)
+
+    α = similar(E)
+    
+    for i in eachindex(E)
+        # Compute part1 as a scaled function of H[i] and E[i]
+        part1 = H[i] * (E[i] / E0)^((γ - 1) / γ)
+
+        # Compute normalized adjustment value α[i]
+        if part1 - H_mean < 0
+            α[i] = -((abs(part1 - H_mean)))^γ
+        else
+            α[i] = ((part1 - H_mean))^γ
+        end
+
+        # Update E[i] with α adjustment
+        α_scalar = α[i]*(residual^γ)
+        Enew[i] = E[i] + E0 * α_scalar
+
+        # Apply limits to ensure Enew[i] stays within [Emin, Emax]
+        Enew[i] = clamp(Enew[i], Emin, Emax)
+    end
+   
+    return Enew
+    
+end
+################################################################################
+function top_2d(::Type{UPM} , par::DynamicParams, E, k, γ, η ,volfrac, name_of_file::String, directory::String)
+    grid = par.grid
+    dh = par.dh
+    #E = par.E
+    # nx = par.nx ; ny = par.ny ; nz = par.nz
+    tnele = par.tnele
+    E0 = par.E0 ; Emin = par.Emin ; Emax = par.Emax
+    #k = par.k ; γ = par.γ ; volfrac = par.vf; 
+    #η = par.η; 
+    ρ0 = par.ρ0
+    max_itr = par.max_itr ; tol = par.tol
+
+    loop = 1
+
+    ## Initial FEM solve
+    fem = fem_solver_combine(par, E)
+    compliance = fem.compliance
+    H = fem.H
+    W_tot = sum(fem.U)
+    strain_energy_vector = [W_tot, W_tot * 10]
+    A = (strain_energy_vector[2] - strain_energy_vector[1]) / strain_energy_vector[1]
+    println("Iter $loop: C = $compliance, ΔR = $A")
+    ## Iterative optimization loop
+    while abs(A) > tol && loop <= max_itr
+        fem = fem_solver_combine(par, E)
+        compliance = fem.compliance
+        H = fem.H
+        W_tot = sum(fem.U)
+        
+        if volfrac == 0.0
+            Enew = update_young_UPM(k, E, H, Emax, Emin, E0, γ)
+            Enew_frac = Enew
+        elseif volfrac > 0.0
+            Enew = update_young_UPM(k, E, H, Emax, Emin, E0, γ)
+            ρ = transfer_to_density(Enew, E0, ρ0, γ)
+            ρnew = filter_density_to_vf!(ρ, volfrac, tnele, η)
+            Enew_frac = transfer_to_young(ρnew, E0, ρ0, γ, Emin, Emax)
+        else
+            error("Invalid value for volfrac")
+        end
+
+        # Update E in par so that fem_solver uses the updated material distribution
+        #par.E = Enew_frac
+        E = Enew_frac
+
+        fem = fem_solver_combine(par, E)
+        compliance = fem.compliance
+        H = fem.H
+        W_tot = sum(fem.U)
+
+        strain_energy_vector[1] = strain_energy_vector[2]
+        strain_energy_vector[2] = W_tot
+        A = (strain_energy_vector[2] - strain_energy_vector[1]) / strain_energy_vector[1]
+
+        loop += 1
+        println("Iter $loop: C = $compliance, ΔR = $A")
+
+
+    end
+
+    ## Handle termination
+    if loop > max_itr
+        compliance = -1
+    end
+
+    # Final write
+    fem = fem_solver_combine(par, E)
+    compliance = fem.compliance
+    u = fem.u
+    σ = fem.σ
+    ε = fem.ε
+    E_node = fem.E_node
+    U = fem.U
     full_path = joinpath(directory, name_of_file)
+
     VTKGridFile(full_path, dh) do vtk
-        write_solution(vtk, dh, fem.u)
+        write_solution(vtk, dh, u)
         for (j, key) in enumerate(("11", "22", "12"))
-            write_cell_data(vtk, fem.σ[j], "stress_" * key)
-            write_cell_data(vtk, fem.ε[j], "strain_" * key)
+            write_cell_data(vtk, σ[j], "stress_" * key)
+        end
+        for (j, key) in enumerate(("11", "22", "12"))
+            write_cell_data(vtk, ε[j], "strain_" * key)
         end
         write_cell_data(vtk, E, "Young's modulus")
-        write_cell_data(vtk, fem.U, "Strain Energy")
-        write_node_data(vtk, fem.E_node, "Nodal Young's modulus")
+        write_cell_data(vtk, U, "Strain Energy")
+        write_node_data(vtk, E_node, "Nodal Young's modulus")
         Ferrite.write_cellset(vtk, grid)
     end
 
-    return fem.compliance
+    return compliance
+
 end
+################################################################################
+function top_2d(::Type{SIMP} , par::DynamicParams, E, γ, η ,volfrac, name_of_file::String, directory::String)
+    grid = par.grid
+    dh = par.dh
+    #E = par.E
+    # nx = par.nx ; ny = par.ny ; nz = par.nz
+    tnele = par.tnele
+    E0 = par.E0 ; Emin = par.Emin ; Emax = par.Emax
+    #γ = par.γ ; volfrac = par.vf; 
+    #η = par.η; 
+    ρ0 = par.ρ0
+    max_itr = par.max_itr ; tol = par.tol
 
-function optimiser_2D_with_combinations(method::Symbol, par::DynamicParams, E, γ_vals, vf_vals, η_vals, special_vals, name_of_file::String, directory::String)
-    if !isdir(directory)
-        println("Creating directory: $directory")
-        mkpath(directory)
-    end
+    loop = 1
 
-    log_path = joinpath(directory, "$name_of_file.txt")
-    open(log_path, "w") do file
-        header = if method == :Ttwo "File γ vf η B_Δt Compliance" else "File γ vf η k Compliance" end
-        write(file, header * "\n")
-    end
-
-    index = 1
-    for vf in vf_vals
-        for γ in γ_vals
-            if vf == 0.0
-                η = 0.0
-                for special in special_vals
-                    args = (special, γ)
-                    fname = "out_$(lpad(index, 4, '0')).vtu"
-                    compliance = top_2d(method, par, E, args...; volfrac=vf, η=η, name_of_file=fname, directory=directory)
-                    open(log_path, "a") do f
-                        write(f, "$(splitext(fname)[1]) $γ nvf $η $special $compliance\n")
-                    end
-                    index += 1
-                end
-            else
-                for η in η_vals
-                    for special in special_vals
-                        args = (special, γ)
-                        fname = "out_$(lpad(index, 4, '0')).vtu"
-                        compliance = top_2d(method, par, E, args...; volfrac=vf, η=η, name_of_file=fname, directory=directory)
-                        open(log_path, "a") do f
-                            write(f, "$(splitext(fname)[1]) $γ $vf $η $special $compliance\n")
-                        end
-                        index += 1
-                    end
-                end
-            end
+    ## Initial FEM solve
+    fem = fem_solver_combine(par, E)
+    compliance = fem.compliance
+    H = fem.H
+    W_tot = sum(fem.U)
+    strain_energy_vector = [W_tot, W_tot * 10]
+    A = (strain_energy_vector[2] - strain_energy_vector[1]) / strain_energy_vector[1]
+    println("Iter $loop: C = $compliance, ΔR = $A")
+    ## Iterative optimization loop
+    while abs(A) > tol && loop <= max_itr
+        fem = fem_solver_combine(par, E)
+        compliance = fem.compliance
+        H = fem.H
+        W_tot = sum(fem.U)
+        # Enew = update_young_SIMP(E, H, Emax, Emin, E0, γ)
+        # ρ = transfer_to_density(Enew, E0, ρ0, γ)
+        # ρnew = filter_density_to_vf!(ρ, volfrac, tnele, η)
+        # Enew_frac = transfer_to_young(ρnew, E0, ρ0, γ, Emin, Emax)
+        if volfrac == 0.0
+            Enew = update_young_SIMP(E, H, Emax, Emin, E0, γ)
+            Enew_frac = Enew
+        elseif volfrac > 0.0
+            Enew = update_young_SIMP(E, H, Emax, Emin, E0, γ)
+            ρ = transfer_to_density(Enew, E0, ρ0, γ)
+            ρnew = filter_density_to_vf!(ρ, volfrac, tnele, η)
+            Enew_frac = transfer_to_young(ρnew, E0, ρ0, γ, Emin, Emax)
+        else
+            error("Invalid value for volfrac")
         end
+
+        # Update E in par so that fem_solver uses the updated material distribution
+        #par.E = Enew_frac
+        E = Enew_frac
+
+        fem = fem_solver_combine(par, E)
+        compliance = fem.compliance
+        H = fem.H
+        W_tot = sum(fem.U)
+
+        strain_energy_vector[1] = strain_energy_vector[2]
+        strain_energy_vector[2] = W_tot
+        A = (strain_energy_vector[2] - strain_energy_vector[1]) / strain_energy_vector[1]
+
+        loop += 1
+        println("Iter $loop: C = $compliance, ΔR = $A")
+
     end
-    println("Optimization completed. Results saved to $log_path")
+
+    ## Handle termination
+    if loop > max_itr
+        compliance = -1
+    end
+
+    # Final write
+    fem = fem_solver_combine(par, E)
+    compliance = fem.compliance
+    u = fem.u
+    σ = fem.σ
+    ε = fem.ε
+    E_node = fem.E_node
+    U = fem.U
+    full_path = joinpath(directory, name_of_file)
+
+    VTKGridFile(full_path, dh) do vtk
+        write_solution(vtk, dh, u)
+        for (j, key) in enumerate(("11", "22", "12"))
+            write_cell_data(vtk, σ[j], "stress_" * key)
+        end
+        for (j, key) in enumerate(("11", "22", "12"))
+            write_cell_data(vtk, ε[j], "strain_" * key)
+        end
+        write_cell_data(vtk, E, "Young's modulus")
+        write_cell_data(vtk, U, "Strain Energy")
+        write_node_data(vtk, E_node, "Nodal Young's modulus")
+        Ferrite.write_cellset(vtk, grid)
+    end
+
+    return compliance
+
+end
+################################################################################
+function top_2d(::Type{Tone} , par::DynamicParams, E, k, γ, η ,volfrac, name_of_file::String, directory::String)
+    grid = par.grid
+    dh = par.dh
+    #E = par.E
+    # nx = par.nx ; ny = par.ny ; nz = par.nz
+    tnele = par.tnele
+    E0 = par.E0 ; Emin = par.Emin ; Emax = par.Emax
+    #k = par.k ; γ = par.γ ; volfrac = par.vf; 
+    #η = par.η; 
+    ρ0 = par.ρ0
+    max_itr = par.max_itr ; tol = par.tol
+
+    loop = 1
+
+    ## Initial FEM solve
+    fem = fem_solver_combine(par, E)
+    compliance = fem.compliance
+    H = fem.H
+    W_tot = sum(fem.U)
+    strain_energy_vector = [W_tot, W_tot * 10]
+    A = (strain_energy_vector[2] - strain_energy_vector[1]) / strain_energy_vector[1]
+    println("Iter $loop: C = $compliance, ΔR = $A")
+    ## Iterative optimization loop
+    while abs(A) > tol && loop <= max_itr
+        fem = fem_solver_combine(par, E)
+        compliance = fem.compliance
+        H = fem.H
+        W_tot = sum(fem.U)
+        # Enew = update_young_Tone(k, E, H, Emax, Emin, E0, γ)
+        # ρ = transfer_to_density(Enew, E0, ρ0, γ)
+        # ρnew = filter_density_to_vf!(ρ, volfrac, tnele, η)
+        # Enew_frac = transfer_to_young(ρnew, E0, ρ0, γ, Emin, Emax)
+
+        if volfrac == 0.0
+            Enew = update_young_Tone(k, E, H, Emax, Emin, E0, γ)
+            Enew_frac = Enew
+        elseif volfrac > 0.0
+            Enew = update_young_Tone(k, E, H, Emax, Emin, E0, γ)
+            ρ = transfer_to_density(Enew, E0, ρ0, γ)
+            ρnew = filter_density_to_vf!(ρ, volfrac, tnele, η)
+            Enew_frac = transfer_to_young(ρnew, E0, ρ0, γ, Emin, Emax)
+        else
+            error("Invalid value for volfrac")
+        end
+
+        # Update E in par so that fem_solver uses the updated material distribution
+        #par.E = Enew_frac
+        E = Enew_frac
+
+        fem = fem_solver_combine(par, E)
+        compliance = fem.compliance
+        H = fem.H
+        W_tot = sum(fem.U)
+
+        strain_energy_vector[1] = strain_energy_vector[2]
+        strain_energy_vector[2] = W_tot
+        A = (strain_energy_vector[2] - strain_energy_vector[1]) / strain_energy_vector[1]
+
+        loop += 1
+        println("Iter $loop: C = $compliance, ΔR = $A")
+    end
+
+    ## Handle termination
+    if loop > max_itr
+        compliance = -1
+    end
+
+    # Final write
+    fem = fem_solver_combine(par, E)
+    compliance = fem.compliance
+    u = fem.u
+    σ = fem.σ
+    ε = fem.ε
+    E_node = fem.E_node
+    U = fem.U
+    full_path = joinpath(directory, name_of_file)
+
+    VTKGridFile(full_path, dh) do vtk
+        write_solution(vtk, dh, u)
+        for (j, key) in enumerate(("11", "22", "12"))
+            write_cell_data(vtk, σ[j], "stress_" * key)
+        end
+        for (j, key) in enumerate(("11", "22", "12"))
+            write_cell_data(vtk, ε[j], "strain_" * key)
+        end
+        write_cell_data(vtk, E, "Young's modulus")
+        write_cell_data(vtk, U, "Strain Energy")
+        write_node_data(vtk, E_node, "Nodal Young's modulus")
+        Ferrite.write_cellset(vtk, grid)
+    end
+
+    return compliance
+
+end
+################################################################################
+function top_2d(::Type{Ttwo} , par::DynamicParams, E, B_Δt, γ, η ,volfrac, name_of_file::String, directory::String)
+    grid = par.grid
+    dh = par.dh
+    #E = par.E
+    # nx = par.nx ; ny = par.ny ; nz = par.nz
+    tnele = par.tnele
+    E0 = par.E0 ; Emin = par.Emin ; Emax = par.Emax
+    #k = par.k ; γ = par.γ ; volfrac = par.vf; 
+    #η = par.η; 
+    ρ0 = par.ρ0
+    max_itr = par.max_itr ; tol = par.tol
+
+    loop = 1
+
+    ## Initial FEM solve
+    fem = fem_solver_combine(par, E)
+    compliance = fem.compliance
+    H = fem.H
+    W_tot = sum(fem.U)
+    strain_energy_vector = [W_tot, W_tot * 10]
+    A = (strain_energy_vector[2] - strain_energy_vector[1]) / strain_energy_vector[1]
+    println("Iter $loop: C = $compliance, ΔR = $A")
+    ## Iterative optimization loop
+    while abs(A) > tol && loop <= max_itr
+        fem = fem_solver_combine(par, E)
+        compliance = fem.compliance
+        H = fem.H
+        W_tot = sum(fem.U)
+        # Enew = update_young_Ttwo(E, H, Emax, Emin, E0, γ, B_Δt)
+        # ρ = transfer_to_density(Enew, E0, ρ0, γ)
+        # ρnew = filter_density_to_vf!(ρ, volfrac, tnele, η)
+        # Enew_frac = transfer_to_young(ρnew, E0, ρ0, γ, Emin, Emax)
+
+        if volfrac == 0.0
+            Enew = update_young_Ttwo(E, H, Emax, Emin, E0, γ, B_Δt)
+            Enew_frac = Enew
+        elseif volfrac > 0.0
+            Enew = update_young_Ttwo(E, H, Emax, Emin, E0, γ, B_Δt)
+            ρ = transfer_to_density(Enew, E0, ρ0, γ)
+            ρnew = filter_density_to_vf!(ρ, volfrac, tnele, η)
+            Enew_frac = transfer_to_young(ρnew, E0, ρ0, γ, Emin, Emax)
+        else
+            error("Invalid value for volfrac")
+        end
+
+        # Update E in par so that fem_solver uses the updated material distribution
+        #par.E = Enew_frac
+        E = Enew_frac
+
+        fem = fem_solver_combine(par, E)
+        compliance = fem.compliance
+        H = fem.H
+        W_tot = sum(fem.U)
+
+        strain_energy_vector[1] = strain_energy_vector[2]
+        strain_energy_vector[2] = W_tot
+        A = (strain_energy_vector[2] - strain_energy_vector[1]) / strain_energy_vector[1]
+
+        loop += 1
+        println("Iter $loop: C = $compliance, ΔR = $A")
+
+    end
+
+    ## Handle termination
+    if loop > max_itr
+        compliance = -1
+    end
+
+    # Final write
+    fem = fem_solver_combine(par, E)
+    compliance = fem.compliance
+    u = fem.u
+    σ = fem.σ
+    ε = fem.ε
+    E_node = fem.E_node
+    U = fem.U
+    full_path = joinpath(directory, name_of_file)
+
+    VTKGridFile(full_path, dh) do vtk
+        write_solution(vtk, dh, u)
+        for (j, key) in enumerate(("11", "22", "12"))
+            write_cell_data(vtk, σ[j], "stress_" * key)
+        end
+        for (j, key) in enumerate(("11", "22", "12"))
+            write_cell_data(vtk, ε[j], "strain_" * key)
+        end
+        write_cell_data(vtk, E, "Young's modulus")
+        write_cell_data(vtk, U, "Strain Energy")
+        write_node_data(vtk, E_node, "Nodal Young's modulus")
+        Ferrite.write_cellset(vtk, grid)
+    end
+
+    return compliance
+
 end

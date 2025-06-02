@@ -3,7 +3,7 @@ using Ferrite
 using PUPM
 using GrowthTop
 # done!
-### Topology Optimization Cantilever based on UPM - type  formulation
+### Topology Optimization Cantilever based on Ttwo - type  formulation
 # Function to create the grid
 par = DynamicParams()
 function create_grid(Lx, Ly, nx, ny)
@@ -72,24 +72,24 @@ par.ν = 0.3  # Poisson's ratio
 par.Emin = 1e-4             # Minimum Young's modulus
 par.Emax = 1.0              # Maximum Young's modulus
 par.ρ0 = 1.0                # Initial density
-par.tol = 1e-2            # Convergence tolerance
-
-# gamma_values = [1, 2, 3]                     # Penalty factor
-# eta_values = [π/(2.5) , π /(3.5) , π/(4.0)]               # Filter parameter
-# k_values = [1 , 4, 8]                     # Sensitivity parameter
-# volfrac_values =[0.0, 0.25, 0.5, 0.75]                   # Volume fraction
-
-γ= 1
-η = π/(3.5)
-k = 8
-volfrac = 0.75
-
-# Neumann BC facet set
+par.tol = 1e-2             # Convergence tolerance
+# Neumann BC facet se
 par.Neumann_bc = getfacetset(grid, "traction")
+
+# γ = [1,2,3]                     # Penalty factor
+# η = [π/(2.5) , π /(3.5) , π/(4.0)]               # Filter parameter
+# B_Δt = [ 0.1, 1, 10]                     # Sensitivity parameter
+# vf =[0.0, 0.25, 0.5, 0.75]                   # Volume fraction
+
+γ = 1                   # Penalty factor
+η =  π/(3.5)               # Filter parameter
+B_Δt = 1.0                    # Sensitivity parameter
+volfrac = 0.75                  # Volume fraction
 
 file_name = "optim"
 dir = "/Users/aminalibakhshi/Desktop/vtu_file/"
 remove_vtk_files(dir)
 par.max_itr = 200
-top_2d(UPM, par, E, k, γ, η ,volfrac, file_name, dir)
 
+
+top_2d(Ttwo , par, E, B_Δt, γ, η ,volfrac,  file_name, dir)
