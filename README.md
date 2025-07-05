@@ -2,7 +2,6 @@
 
 A Package for Bone Remodeling Driven Topology Optimization (Growth Method)
 
-Two and Three dimensional problems are covered.
 
 Finite Element Programming is based on
 
