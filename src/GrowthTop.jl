@@ -1,7 +1,9 @@
 module GrowthTop
-using PUPM
+#using PUPM
 using Statistics
 using Ferrite
+using PUPM
+
 
 #### topology optimization utils
 export UPM, SIMP, Tone, Ttwo

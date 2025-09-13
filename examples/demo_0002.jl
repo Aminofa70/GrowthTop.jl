@@ -5,7 +5,7 @@ using GrowthTop
 # done!
 ### topology optmization three points bending UPM
 # Function to create the grid
-par = DynamicParams()
+par = GrowthTop.DynamicParams()
 function create_grid(Lx, Ly, nx, ny)
     corners = [
         Ferrite.Vec{2}((0.0, 0.0)), Ferrite.Vec{2}((Lx, 0.0)),
@@ -91,7 +91,7 @@ volfrac = 0.25
 par.Neumann_bc = Ferrite.getnodeset(grid, "nodal_force")  # Nodes on the edge
 
 file_name = "optim"
-dir = "/Users/aminalibakhshi/Desktop/vtu_file/"
+dir = "/Users/aminalibakhshi/Desktop/vtu_geo/"
 remove_vtk_files(dir)
 par.max_itr = 200
 top_2d(UPM, par, E, k, γ, η ,volfrac, file_name, dir)

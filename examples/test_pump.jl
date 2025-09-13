@@ -10,7 +10,7 @@ Reference:
 https://shop.elsevier.com/books/practical-programming-of-finite-element-procedures-for-solids-and-structures-with-matlab/farahmand-tabar/978-0-443-15338-9
 
 """
-par = DynamicParams()  # Create a dynamic parameter object
+par = GrowthTop.DynamicParams()  # Create a dynamic parameter object
 # Function to create the grid
 function create_grid(Lx, Ly, nx, ny)
     corners = [
@@ -76,7 +76,7 @@ dh = par.dh; grid = dh.grid
 par.Neumann_bc = Ferrite.getfacetset(dh.grid, "pressure")
 
 # Solve the FEM problem using OptiUPM
-result = fem_solver(par)
+result = PUPM.fem_solver(par)
 u = result.u
 
 display(maximum(u))
