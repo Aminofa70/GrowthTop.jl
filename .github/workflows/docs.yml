@@ -3,7 +3,7 @@ name: Documentation
 on:
   push:
     branches:
-      - main  # Change this if your default branch is not "main"
+      - main
   pull_request:
     branches:
       - main
@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: write  # Needed to push to gh-pages branch
+      contents: write
 
     steps:
       - name: Checkout repository
@@ -22,7 +22,7 @@ jobs:
       - name: Set up Julia
         uses: julia-actions/setup-julia@v2
         with:
-          version: '1.11'  # Match your Julia version
+          version: '1.11'
 
       - name: Cache Julia packages
         uses: actions/cache@v4
@@ -40,7 +40,10 @@ jobs:
             # Use unregistered PUPM package from GitHub
             Pkg.develop(PackageSpec(url="https://github.com/Aminofa70/PUPM.jl"));
 
-            # Install all dependencies
+            # Use Pkg.resolve() to correctly update the Manifest.toml
+            Pkg.resolve();
+
+            # Now Pkg.instantiate() will find the local development version
             Pkg.instantiate();
           '
 
