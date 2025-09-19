@@ -2,7 +2,7 @@ using GrowthTop
 using Documenter
 using PUPM
 
-DocMeta.setdocmeta!(GrowthTop, :DocTestSetup, :(using GrowthTop); recursive=true)
+DocMeta.setdocmeta!(GrowthTop, :DocTestSetup, :(using GrowthTop, PUPM); recursive=true)
 
 makedocs(;
     modules=[GrowthTop],
