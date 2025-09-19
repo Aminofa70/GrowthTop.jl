@@ -30,6 +30,21 @@ jobs:
           path: ~/.julia/artifacts
           key: ${{ runner.os }}-julia-artifacts-${{ hashFiles('**/Project.toml', '**/Manifest.toml') }}
 
+      - name: Add local registry
+        run: |
+          julia -e '
+          import Pkg;
+          Pkg.Registry.add(Pkg.RegistrySpec(path=pwd()*"/path/to/MyRegistry"))
+          '
+
+      - name: Add PUPM package
+        run: |
+          julia -e '
+          import Pkg;
+          Pkg.add("PUPM");
+          Pkg.instantiate()
+          '
+
       - name: Install dependencies
         run: |
           julia --project=docs -e 'using Pkg; Pkg.develop(path="."); Pkg.instantiate()'
