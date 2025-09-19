@@ -3,7 +3,7 @@ name: Documentation
 on:
   push:
     branches:
-      - main  # Change to your default branch name if not "main"
+      - main
   pull_request:
     branches:
       - main
@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: write  # Needed to push to gh-pages branch
+      contents: write
 
     steps:
       - name: Checkout repository
@@ -22,7 +22,7 @@ jobs:
       - name: Set up Julia
         uses: julia-actions/setup-julia@v2
         with:
-          version: '1.11'  # Match your local Julia version
+          version: '1.11'
 
       - name: Cache Julia packages
         uses: actions/cache@v4
@@ -30,24 +30,8 @@ jobs:
           path: ~/.julia/artifacts
           key: ${{ runner.os }}-julia-artifacts-${{ hashFiles('**/Project.toml', '**/Manifest.toml') }}
 
-      - name: Add local registry
-        run: |
-          julia -e '
-          import Pkg;
-          Pkg.Registry.add(Pkg.RegistrySpec(path=pwd()*"/path/to/MyRegistry"))
-          '
-
-      - name: Add PUPM package
-        run: |
-          julia -e '
-          import Pkg;
-          Pkg.add("PUPM");
-          Pkg.instantiate()
-          '
-
-      - name: Install dependencies
-        run: |
-          julia --project=docs -e 'using Pkg; Pkg.develop(path="."); Pkg.instantiate()'
+      - name: Add local PUPM package and instantiate environment
+        run: julia -e 'import Pkg; Pkg.develop(path="path/to/PUPM"); Pkg.instantiate()'
 
       - name: Build and deploy docs
         env:
