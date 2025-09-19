@@ -1,5 +1,6 @@
 using GrowthTop
 using Documenter
+using PUPM
 
 DocMeta.setdocmeta!(GrowthTop, :DocTestSetup, :(using GrowthTop); recursive=true)
 
