@@ -10,7 +10,7 @@ Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [compat]
 Ferrite = "1.1.0"
-PUPM = "1.0.0"
+PUPM = {url = "https://github.com/Aminofa70/PUPM.jl"}
 Statistics = "1.11.1"
 julia = "1.6.7"
 
