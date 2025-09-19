@@ -31,7 +31,7 @@ jobs:
           key: ${{ runner.os }}-julia-artifacts-${{ hashFiles('**/Project.toml', '**/Manifest.toml') }}
 
       - name: Add local PUPM package and instantiate environment
-        run: julia -e 'import Pkg; Pkg.develop(path="path/to/PUPM"); Pkg.instantiate()'
+        run: julia -e 'import Pkg; Pkg.develop(path="PUPM"); Pkg.instantiate()'
 
       - name: Build and deploy docs
         env:
