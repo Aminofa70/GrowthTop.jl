@@ -88,7 +88,7 @@ volfrac = 0.75
 par.Neumann_bc = getfacetset(grid, "traction")
 
 file_name = "optim"
-dir = "/Users/aminalibakhshi/Desktop/vtu_file/"
+dir = "/Users/aminalibakhshi/Desktop/vtu_geo/"
 remove_vtk_files(dir)
 par.max_itr = 200
 top_2d(UPM, par, E, k, γ, η ,volfrac, file_name, dir)
