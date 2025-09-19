@@ -30,21 +30,10 @@ jobs:
           path: ~/.julia/artifacts
           key: ${{ runner.os }}-julia-artifacts-${{ hashFiles('**/Project.toml', '**/Manifest.toml') }}
 
-      - name: Add PUPM.jl
-        run: |
-          julia --project=docs -e '
-            import Pkg;
-            Pkg.add(url="https://github.com/Aminofa70/PUPM.jl");
-          '
-      
-      - name: Install other dependencies
+      - name: Install dependencies
         run: |
           julia --project=docs -e '
             using Pkg;
-            # Use local GrowthTop code
-            Pkg.develop(path=".");
-
-            # Install all remaining dependencies
             Pkg.instantiate();
           '
 
