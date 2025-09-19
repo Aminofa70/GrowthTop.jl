@@ -1,8 +1,3 @@
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 GrowthTop = "62be7a3e-eb6e-4285-9b10-c716bac42db9"
-PUPM = "98242e13-4771-4396-83d3-ad6bca37f0e8"
-
-
-[compat]
-PUPM = "1.0.0"
