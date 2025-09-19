@@ -3,7 +3,7 @@ name: Documentation
 on:
   push:
     branches:
-      - main  # Change to your default branch name if not "main"
+      - main  # Change this if your default branch is not "main"
   pull_request:
     branches:
       - main
@@ -22,7 +22,7 @@ jobs:
       - name: Set up Julia
         uses: julia-actions/setup-julia@v2
         with:
-          version: '1.11'  # Match your local Julia version
+          version: '1.11'  # Match your Julia version
 
       - name: Cache Julia packages
         uses: actions/cache@v4
@@ -34,8 +34,13 @@ jobs:
         run: |
           julia --project=docs -e '
             using Pkg;
-            Pkg.develop(path=".");  # Use local version of GrowthTop
-            Pkg.add(url="https://github.com/Aminofa70/PUPM.jl");  # Explicitly add unregistered PUPM
+            # Use local GrowthTop code
+            Pkg.develop(path=".");
+
+            # Use unregistered PUPM package from GitHub
+            Pkg.develop(PackageSpec(url="https://github.com/Aminofa70/PUPM.jl"));
+
+            # Install all dependencies
             Pkg.instantiate();
           '
 
