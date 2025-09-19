@@ -30,20 +30,21 @@ jobs:
           path: ~/.julia/artifacts
           key: ${{ runner.os }}-julia-artifacts-${{ hashFiles('**/Project.toml', '**/Manifest.toml') }}
 
-      - name: Install dependencies
+      - name: Add PUPM.jl
+        run: |
+          julia --project=docs -e '
+            import Pkg;
+            Pkg.add(url="https://github.com/Aminofa70/PUPM.jl");
+          '
+      
+      - name: Install other dependencies
         run: |
           julia --project=docs -e '
             using Pkg;
             # Use local GrowthTop code
             Pkg.develop(path=".");
 
-            # Use unregistered PUPM package from GitHub
-            Pkg.develop(PackageSpec(url="https://github.com/Aminofa70/PUPM.jl"));
-
-            # Use Pkg.resolve() to correctly update the Manifest.toml
-            Pkg.resolve();
-
-            # Now Pkg.instantiate() will find the local development version
+            # Install all remaining dependencies
             Pkg.instantiate();
           '
 
