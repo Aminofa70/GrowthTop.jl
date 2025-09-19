@@ -27,11 +27,14 @@ jobs:
       - name: Cache Julia packages
         uses: actions/cache@v4
         with:
-          path: ~/.julia/artifacts
-          key: ${{ runner.os }}-julia-artifacts-${{ hashFiles('**/Project.toml', '**/Manifest.toml') }}
+          path: ~/.julia
+          key: ${{ runner.os }}-julia-${{ hashFiles('**/Project.toml', '**/Manifest.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-julia-
 
-      - name: Add local PUPM package and instantiate environment
-        run: julia -e 'import Pkg; Pkg.develop(path="/Users/aminalibakhshi/Documents/projects/PUPM"); Pkg.instantiate()'
+      - name: Add PUPM package from GitHub and instantiate environment
+        run: |
+          julia -e 'import Pkg; Pkg.add(url="https://github.com/Aminofa70/PUPM.jl"); Pkg.instantiate()'
 
       - name: Build and deploy docs
         env:
