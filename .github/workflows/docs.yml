@@ -9,7 +9,7 @@ on:
       - main
 
 jobs:
-  documentation:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     permissions:
@@ -29,14 +29,6 @@ jobs:
         with:
           path: ~/.julia/artifacts
           key: ${{ runner.os }}-julia-artifacts-${{ hashFiles('**/Project.toml', '**/Manifest.toml') }}
-
-      - name: Add PUPM.jl
-        run: |
-          julia -e '
-            import Pkg;
-            Pkg.activate(".");
-            Pkg.add(url="https://github.com/Aminofa70/PUPM.jl");
-          '
 
       - name: Install dependencies
         run: |
