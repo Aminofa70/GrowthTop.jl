@@ -1,5 +1,5 @@
-name: CI
 
+name: CI
 on:
   push:
     branches:
@@ -7,17 +7,17 @@ on:
     tags: ['*']
   pull_request:
   workflow_dispatch:
-
 concurrency:
+  # Skip intermediate builds: always.
+  # Cancel intermediate builds: only if it is a pull request build.
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
-
 jobs:
   test:
     name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
-    permissions:
+    permissions: # needed to allow julia-actions/cache to proactively delete old caches that it has created
       actions: write
       contents: read
     strategy:
@@ -26,73 +26,47 @@ jobs:
         version:
           - '1.11'
           - 'pre'
-        os: ['ubuntu-latest']
-        include:
-          - os: windows-latest
-            version: '1'
-            arch: x64
-          - os: macOS-latest
-            version: '1'
-            arch: x64
+        os:
+          - ubuntu-latest
         arch:
           - x64
     steps:
       - uses: actions/checkout@v4
-
       - uses: julia-actions/setup-julia@v2
         with:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
-
-      - name: Add PUPM.jl
-        run: |
-          julia -e '
-            import Pkg;
-            Pkg.activate(".");
-            Pkg.add(url="https://github.com/Aminofa70/PUPM.jl");
-          '
-
       - uses: julia-actions/cache@v2
-
       - uses: julia-actions/julia-buildpkg@v1
-
       - uses: julia-actions/julia-runtest@v1
-
   docs:
     name: Documentation
     runs-on: ubuntu-latest
     permissions:
-      actions: write
+      actions: write # needed to allow julia-actions/cache to proactively delete old caches that it has created
       contents: write
       statuses: write
     steps:
       - uses: actions/checkout@v4
-
       - uses: julia-actions/setup-julia@v2
         with:
           version: '1'
-
       - uses: julia-actions/cache@v2
-
       - name: Configure doc environment
         shell: julia --project=docs --color=yes {0}
         run: |
           using Pkg
           Pkg.develop(PackageSpec(path=pwd()))
           Pkg.instantiate()
-
       - uses: julia-actions/julia-buildpkg@v1
-
       - uses: julia-actions/julia-docdeploy@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
-
       - name: Run doctests
         shell: julia --project=docs --color=yes {0}
         run: |
           using Documenter: DocMeta, doctest
-          # Uncomment below to enable doctests for your package
-          # using GrowthTop
-          # DocMeta.setdocmeta!(GrowthTop, :DocTestSetup, :(using GrowthTop); recursive=true)
-          # doctest(GrowthTop)
+          using GrowthTop
+          DocMeta.setdocmeta!(GrowthTop, :DocTestSetup, :(using GrowthTop); recursive=true)
+          doctest(GrowthTop)
