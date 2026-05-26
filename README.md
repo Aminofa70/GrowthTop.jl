@@ -1,5 +1,7 @@
 # GrowthTop
 
+** The package is going to be under heavy change **
+
 A Package for Bone Remodeling Driven Topology Optimization (Growth Method)
 
 
